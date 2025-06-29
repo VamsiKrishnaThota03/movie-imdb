@@ -99,7 +99,7 @@ export default function MoviesPage() {
             </div>
             {searchTerm.length > 2 && (
               <div className="mt-4 text-center text-sm text-muted-foreground">
-                Showing {displayMovies.length} results for "{searchTerm}"
+                Showing {displayMovies.length} results for &quot;{searchTerm}&quot;
               </div>
             )}
           </>

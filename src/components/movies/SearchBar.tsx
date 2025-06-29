@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { useAppDispatch, useAppSelector } from '@/lib/store/store';
+import { useAppDispatch } from '@/lib/store/store';
 import { setSearchTerm } from '@/lib/store/features/movieSlice';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 
