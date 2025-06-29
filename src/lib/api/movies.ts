@@ -2,14 +2,10 @@ import axios from 'axios';
 import { Movie } from '../store/features/movieSlice';
 
 const API_KEY = process.env.NEXT_PUBLIC_OMDB_API_KEY;
-const BASE_URL = process.env.NEXT_PUBLIC_OMDB_BASE_URL;
+const BASE_URL = 'https://www.omdbapi.com';
 
 if (!API_KEY) {
   console.error('OMDB API key is not set');
-}
-
-if (!BASE_URL) {
-  console.error('OMDB base URL is not set');
 }
 
 const api = axios.create({
