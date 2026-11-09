@@ -1,87 +1,55 @@
 import axios from 'axios';
-import { Movie } from '../store/features/movieSlice';
+import type { Movie, SearchResponse } from '../types';
 
-const API_KEY = process.env.NEXT_PUBLIC_OMDB_API_KEY;
-const BASE_URL = 'https://www.omdbapi.com';
+// The browser only talks to this app's API routes; the OMDb key stays on the server.
+const api = axios.create({ baseURL: '/api' });
 
-if (!API_KEY) {
-  console.error('OMDB API key is not set');
+function toError(error: unknown, fallback: string): Error {
+  if (axios.isAxiosError(error)) {
+    const message = error.response?.data?.error;
+    if (typeof message === 'string') return new Error(message);
+    if (!error.response) return new Error('Network error. Check your connection and try again.');
+  }
+  return error instanceof Error ? error : new Error(fallback);
 }
 
-const api = axios.create({
-  baseURL: BASE_URL,
-});
+export const MIN_SEARCH_LENGTH = 3;
 
-export const searchMovies = async (searchTerm: string) => {
-  if (!searchTerm || searchTerm.length <= 2) {
-    return [];
-  }
+/** Search movies by title. Fetches up to `pages` pages of 10 results each. */
+export const searchMovies = async (searchTerm: string, pages = 2): Promise<SearchResponse> => {
+  const q = searchTerm.trim();
+  if (q.length < MIN_SEARCH_LENGTH) return { results: [], totalResults: 0 };
 
   try {
-    console.log('Searching for:', searchTerm);
-    // First request to get total results
-    const firstResponse = await api.get('', {
-      params: {
-        apikey: API_KEY,
-        s: searchTerm,
-        type: 'movie',
-        page: 1,
-      },
-    });
+    const first = await api.get<SearchResponse>('/movies', { params: { q, page: 1 } });
+    let results = first.data.results;
+    const { totalResults } = first.data;
 
-    if (firstResponse.data.Response === 'False') {
-      if (firstResponse.data.Error === 'Movie not found!') {
-        return [];
-      }
-      throw new Error(firstResponse.data.Error);
-    }
-
-    const totalResults = parseInt(firstResponse.data.totalResults, 10);
-    const firstPageResults = firstResponse.data.Search || [];
-
-    // If we have more than 10 results, fetch the second page
-    if (totalResults > 10) {
+    for (let page = 2; page <= pages && results.length < totalResults; page++) {
       try {
-        const secondResponse = await api.get('', {
-          params: {
-            apikey: API_KEY,
-            s: searchTerm,
-            type: 'movie',
-            page: 2,
-          },
-        });
-
-        if (secondResponse.data.Response === 'True') {
-          return [...firstPageResults, ...(secondResponse.data.Search || [])];
-        }
-      } catch (error) {
-        console.error('Error fetching second page:', error);
+        const next = await api.get<SearchResponse>('/movies', { params: { q, page } });
+        results = results.concat(next.data.results);
+      } catch {
+        break; // keep what we have
       }
     }
 
-    return firstPageResults;
+    // OMDb occasionally repeats a title across pages
+    const unique = Array.from(new Map(results.map((m) => [m.imdbID, m])).values());
+    return { results: unique, totalResults };
   } catch (error) {
-    console.error('API Error:', error);
-    throw error;
+    throw toError(error, 'Search failed');
   }
 };
 
-export const getMovieDetails = async (imdbId: string) => {
+export const getMovieDetails = async (imdbId: string): Promise<Movie> => {
   try {
-    const response = await api.get('', {
-      params: {
-        apikey: API_KEY,
-        i: imdbId,
-        plot: 'full',
-      },
-    });
-
-    if (response.data.Response === 'True') {
-      return response.data as Movie;
-    }
-    throw new Error(response.data.Error || 'Failed to fetch movie details');
+    const response = await api.get<Movie>(`/movies/${encodeURIComponent(imdbId)}`);
+    return response.data;
   } catch (error) {
-    console.error('API Error:', error);
-    throw error;
+    throw toError(error, 'Failed to fetch movie details');
   }
-}; 
+};
+
+export const posterSrc = (poster?: string) =>
+  poster && poster !== 'N/A' ? poster : '/poster-placeholder.svg';
