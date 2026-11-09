@@ -13,48 +13,61 @@ A responsive movie search app built with Next.js 15, React 19 and the OMDb API. 
 
 **https://movie-imdb-omega.vercel.app/movies**
 
+| Search (light) | Movie detail (dark) | Mobile |
+| --- | --- | --- |
+| ![Search page](docs/screenshots/search.png) | ![Movie detail page in dark mode](docs/screenshots/movie-detail-dark.png) | ![Mobile layout](docs/screenshots/mobile.png) |
+
+_Screenshots use sample data with generated posters._
+
 ## Overview
 
-The app uses the Next.js App Router, and `/` redirects to `/movies`. The movies page starts with a grid of popular titles (results for "star wars", "avengers" and "lord of the rings"). Typing in the search bar queries [OMDb](https://www.omdbapi.com/) once you have entered at least 3 characters, with a 500 ms debounce. Up to two result pages (about 20 movies) are fetched. Data fetching and caching use TanStack Query, while search term, results, selected movie, and ratings live in Redux Toolkit.
+The app uses the Next.js App Router, and `/` redirects to `/movies` on the server. The movies page starts with a grid of popular titles (mixed results for "star wars", "avengers" and "lord of the rings"). Typing in the search bar searches [OMDb](https://www.omdbapi.com/) once you have entered at least 3 characters, with a 400 ms debounce, and fetches up to two result pages (about 20 movies).
+
+The browser never talks to OMDb directly: it calls the app's own route handlers (`/api/movies`, `/api/movies/[id]`), which add the API key on the server and cache OMDb responses for an hour. TanStack Query handles fetching and client caching; Redux Toolkit holds the search term and your ratings.
 
 ## Features
 
-- **Live, debounced search:** searches OMDb as you type (500 ms debounce, minimum 3 characters)
-- **Initial suggestions:** a grid of 12 popular movies before you search
-- **Movie detail page** (`/movies/[id]`): poster, year, genre, director, actors and full plot
-- **Star rating (1-5):** your rating shows on the detail page and the movie card. It is kept in app state for the current session.
-- **Light/dark theme toggle:** uses `next-themes`, defaults to the OS preference and is saved to `localStorage`
-- **Loading skeletons** and empty or error states
-- **Responsive grid** built with Tailwind CSS 4 and shadcn/ui-style components (Radix UI primitives, `lucide-react` icons)
+- **Live, debounced search:** searches as you type (400 ms debounce, minimum 3 characters) with a clear button; the query is kept when you go back from a movie
+- **Initial suggestions:** a grid of 15 popular movies before you search
+- **Movie detail page** (`/movies/[id]`): poster, year, rating certificate, runtime, IMDb score, genres, director, cast, release date, language and full plot
+- **Star rating (1-5):** keyboard-accessible star picker; click the same star again to clear. Ratings are saved in `localStorage` and shown as a badge on movie cards.
+- **Light/dark theme toggle:** `next-themes`, defaults to the OS preference
+- **Loading skeletons**, empty results and error states with retry (including a clear message when the server has no API key)
+- **Server-side API key:** `OMDB_API_KEY` is only read by route handlers, and inputs (search term length, IMDb id format, page) are validated
+- **Responsive grid** built with Tailwind CSS 4 and shadcn/ui-style components (`lucide-react` icons)
 
 ## Tech stack
 
 | Area | Tools |
 | --- | --- |
-| Framework | Next.js 15 (App Router, Turbopack dev), React 19, TypeScript |
+| Framework | Next.js 15 (App Router, route handlers, Turbopack dev), React 19, TypeScript |
 | Data | TanStack Query 5, axios, OMDb API |
 | State | Redux Toolkit, React Redux |
-| UI | Tailwind CSS 4, `next-themes`, shadcn/ui components (Radix UI, `class-variance-authority`, `tailwind-merge`), `lucide-react` |
+| UI | Tailwind CSS 4, `next-themes`, shadcn/ui components (`@radix-ui/react-slot`, `class-variance-authority`, `tailwind-merge`), `lucide-react` |
 | Hosting | Vercel |
 
 ## Project structure
 
 ```
 movie-imdb/
-├── public/                      # static assets, placeholder poster
+├── public/                      # placeholder poster
 └── src/
     ├── app/
     │   ├── page.tsx             # redirects to /movies
+    │   ├── api/movies/route.ts       # GET /api/movies?q=&page=  (OMDb search proxy)
+    │   ├── api/movies/[id]/route.ts  # GET /api/movies/:imdbId (OMDb details proxy)
     │   ├── movies/page.tsx      # search + results grid
     │   └── movies/[id]/page.tsx # movie details + rating
     ├── components/
-    │   ├── movies/              # MovieCard, SearchBar
-    │   ├── providers/           # Redux / React Query providers, ThemeProvider
-    │   └── ui/                  # button, card, dialog, input, skeleton, toggle
+    │   ├── movies/              # MovieCard, MovieGrid, SearchBar, StarRating
+    │   ├── providers/           # next-themes, Redux and React Query providers
+    │   ├── SiteHeader.tsx, Notice.tsx
+    │   └── ui/                  # button, card, input, skeleton
     └── lib/
-        ├── api/movies.ts        # OMDb search + details
+        ├── api/movies.ts        # client calls to the app's API routes
+        ├── server/omdb.ts       # server-side OMDb client (reads OMDB_API_KEY)
         ├── hooks/useDebounce.ts
-        └── store/               # Redux store, movie + theme slices
+        └── store/               # Redux store and movie slice (search term, ratings)
 ```
 
 ## Getting started
@@ -70,7 +83,7 @@ movie-imdb/
 git clone https://github.com/VamsiKrishnaThota03/movie-imdb.git
 cd movie-imdb
 npm install
-echo "NEXT_PUBLIC_OMDB_API_KEY=<your-omdb-api-key>" > .env.local
+cp .env.example .env.local   # then set OMDB_API_KEY
 npm run dev            # http://localhost:3000
 ```
 
@@ -78,9 +91,9 @@ npm run dev            # http://localhost:3000
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `NEXT_PUBLIC_OMDB_API_KEY` | Yes | OMDb API key. It is exposed to the browser because requests are made client-side. |
+| `OMDB_API_KEY` | Yes | OMDb API key, read only on the server by the `/api/movies` route handlers. Without it the app shows a configuration error. |
 
-The OMDb base URL (`https://www.omdbapi.com`) is set in `src/lib/api/movies.ts`.
+For older deployments the server also falls back to `NEXT_PUBLIC_OMDB_API_KEY`, but it is no longer used in browser code. Prefer `OMDB_API_KEY`.
 
 ### Scripts
 
@@ -90,3 +103,9 @@ The OMDb base URL (`https://www.omdbapi.com`) is set in `src/lib/api/movies.ts`.
 | `npm run build` | Production build |
 | `npm start` | Serve the production build |
 | `npm run lint` | Next.js ESLint |
+
+## Known limitations
+
+- Ratings are stored per browser in `localStorage`; there are no accounts or sync.
+- Search covers movies only (`type=movie`) and shows at most the first two OMDb pages.
+- The free OMDb tier allows 1,000 requests per day; responses are cached for an hour to stay under it.
