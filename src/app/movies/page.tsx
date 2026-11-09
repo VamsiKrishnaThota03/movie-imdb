@@ -1,124 +1,76 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useAppDispatch, useAppSelector } from '@/lib/store/store';
-import { setSearchResults, setError, setLoading, Movie } from '@/lib/store/features/movieSlice';
-import { searchMovies } from '@/lib/api/movies';
+import { useAppSelector } from '@/lib/store/store';
+import { MIN_SEARCH_LENGTH, searchMovies } from '@/lib/api/movies';
 import SearchBar from '@/components/movies/SearchBar';
-import MovieCard from '@/components/movies/MovieCard';
-import { Button } from '@/components/ui/button';
-import { useTheme } from 'next-themes';
+import { MovieGrid, MovieGridSkeleton } from '@/components/movies/MovieGrid';
+import { EmptyNotice, ErrorNotice } from '@/components/Notice';
 
-const INITIAL_SEARCHES = ['star wars', 'avengers', 'lord of the rings'];
+const FEATURED_SEARCHES = ['star wars', 'avengers', 'lord of the rings'];
+
+async function fetchFeatured() {
+  const results = await Promise.allSettled(FEATURED_SEARCHES.map((term) => searchMovies(term, 1)));
+  const ok = results.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof searchMovies>>> => r.status === 'fulfilled');
+  if (ok.length === 0) throw (results[0] as PromiseRejectedResult).reason;
+  // Interleave the lists so the grid mixes franchises
+  const lists = ok.map((r) => r.value.results);
+  const mixed = [];
+  for (let i = 0; mixed.length < 15 && i < 10; i++) {
+    for (const list of lists) if (list[i]) mixed.push(list[i]);
+  }
+  return mixed.slice(0, 15);
+}
 
 export default function MoviesPage() {
-  const dispatch = useAppDispatch();
   const searchTerm = useAppSelector((state) => state.movies.searchTerm);
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  const [initialMovies, setInitialMovies] = useState<Movie[]>([]);
+  const isSearching = searchTerm.length >= MIN_SEARCH_LENGTH;
 
-  useEffect(() => {
-    setMounted(true);
-    // Fetch initial movies
-    const fetchInitialMovies = async () => {
-      try {
-        const results = await Promise.all(
-          INITIAL_SEARCHES.map(term => searchMovies(term))
-        );
-        const combinedMovies = results.flat().slice(0, 12); // Take first 12 movies
-        setInitialMovies(combinedMovies);
-      } catch (error) {
-        console.error('Error fetching initial movies:', error);
-      }
-    };
-    fetchInitialMovies();
-  }, []);
-
-  const { data, isLoading, error } = useQuery({
+  const featured = useQuery({ queryKey: ['featured'], queryFn: fetchFeatured, enabled: !isSearching, staleTime: Infinity });
+  const search = useQuery({
     queryKey: ['movies', searchTerm],
     queryFn: () => searchMovies(searchTerm),
-    enabled: searchTerm.length > 2,
+    enabled: isSearching,
   });
 
-  useEffect(() => {
-    dispatch(setLoading(isLoading));
-    if (error) {
-      dispatch(setError((error as Error).message));
-    } else if (data) {
-      dispatch(setSearchResults(data));
-    } else if (searchTerm.length === 0) {
-      // Clear search results when search term is empty
-      dispatch(setSearchResults([]));
-    }
-  }, [data, isLoading, error, dispatch, searchTerm]);
-
-  const displayMovies = searchTerm.length > 2 ? data : initialMovies;
+  const active = isSearching ? search : featured;
+  const movies = isSearching ? search.data?.results : featured.data;
 
   return (
-    <main className="min-h-screen bg-background p-8">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-4xl font-bold">Movie Search</h1>
-          {mounted && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            >
-              {mounted && theme === 'dark' ? '🌙' : '☀️'}
-            </Button>
+    <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+      <section className="mb-10">
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Find your next movie</h1>
+        <p className="mt-2 mb-6 text-muted-foreground">Search the OMDb catalogue by title, open a movie for details and rate it.</p>
+        <SearchBar />
+        {searchTerm.length > 0 && !isSearching && (
+          <p className="mt-2 text-sm text-muted-foreground">Type at least {MIN_SEARCH_LENGTH} characters to search.</p>
+        )}
+      </section>
+
+      <section aria-live="polite">
+        <div className="mb-4 flex items-baseline justify-between gap-4">
+          <h2 className="text-lg font-semibold">
+            {isSearching ? <>Results for &ldquo;{searchTerm}&rdquo;</> : 'Popular picks'}
+          </h2>
+          {isSearching && search.data && search.data.totalResults > 0 && (
+            <span className="text-sm text-muted-foreground">
+              Showing {search.data.results.length} of {search.data.totalResults.toLocaleString()}
+            </span>
           )}
         </div>
 
-        <div className="mb-8">
-          <SearchBar />
-        </div>
-
-        {isLoading && (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="h-[400px] animate-pulse rounded-lg bg-muted" />
-            ))}
-          </div>
+        {active.isPending && active.fetchStatus !== 'idle' ? (
+          <MovieGridSkeleton />
+        ) : active.error ? (
+          <ErrorNotice message={(active.error as Error).message} onRetry={() => active.refetch()} />
+        ) : movies && movies.length > 0 ? (
+          <MovieGrid movies={movies} />
+        ) : (
+          <EmptyNotice title={isSearching ? 'No movies found' : 'Nothing to show yet'}>
+            {isSearching ? 'Check the spelling or try a different title.' : 'Start typing to search for movies.'}
+          </EmptyNotice>
         )}
-
-        {error && (
-          <div className="rounded-lg bg-destructive/10 p-4 text-destructive">
-            <p>{(error as Error).message}</p>
-          </div>
-        )}
-
-        {!isLoading && !error && displayMovies && displayMovies.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {displayMovies.map((movie: Movie) => (
-                <MovieCard key={movie.imdbID} movie={movie} />
-              ))}
-            </div>
-            {searchTerm.length > 2 && (
-              <div className="mt-4 text-center text-sm text-muted-foreground">
-                Showing {displayMovies.length} results for &quot;{searchTerm}&quot;
-              </div>
-            )}
-          </>
-        )}
-
-        {!isLoading && !error && searchTerm.length > 2 && (!displayMovies || displayMovies.length === 0) && (
-          <div className="text-center">
-            <p className="text-lg text-muted-foreground">No movies found</p>
-          </div>
-        )}
-
-        {searchTerm.length <= 2 && !displayMovies && (
-          <div className="text-center">
-            <p className="text-lg text-muted-foreground">
-              Start typing to search for movies
-            </p>
-          </div>
-        )}
-      </div>
+      </section>
     </main>
   );
-} 
+}
