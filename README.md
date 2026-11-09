@@ -1,97 +1,92 @@
-# Movie Search App
+# Movie Search (OMDb)
 
-A beautiful and modern movie search application built with Next.js, TypeScript, and OMDB API. This app allows users to search for movies, view details, and rate their favorite films.
+A responsive movie search app built with Next.js 15, React 19 and the OMDb API. Search titles as you type, open a movie's details and give it a 1-5 star rating.
+
+![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
+![TanStack Query](https://img.shields.io/badge/TanStack%20Query-5-FF4154?logo=reactquery&logoColor=white)
+![Redux Toolkit](https://img.shields.io/badge/Redux%20Toolkit-2-764ABC?logo=redux&logoColor=white)
+
+## Live demo
+
+**https://movie-imdb-omega.vercel.app/movies**
+
+## Overview
+
+The app uses the Next.js App Router, and `/` redirects to `/movies`. The movies page starts with a grid of popular titles (results for "star wars", "avengers" and "lord of the rings"). Typing in the search bar queries [OMDb](https://www.omdbapi.com/) once you have entered at least 3 characters, with a 500 ms debounce. Up to two result pages (about 20 movies) are fetched. Data fetching and caching use TanStack Query, while search term, results, selected movie, and ratings live in Redux Toolkit.
 
 ## Features
 
-- 🎬 Search movies by title
-- 🌟 Rate movies and save ratings locally
-- 🌙 Dark mode support
-- 📱 Fully responsive design
-- ⚡ Fast and efficient with debounced search
-- 🎨 Beautiful UI with shadcn/ui components
+- **Live, debounced search:** searches OMDb as you type (500 ms debounce, minimum 3 characters)
+- **Initial suggestions:** a grid of 12 popular movies before you search
+- **Movie detail page** (`/movies/[id]`): poster, year, genre, director, actors and full plot
+- **Star rating (1-5):** your rating shows on the detail page and the movie card. It is kept in app state for the current session.
+- **Light/dark theme toggle:** uses `next-themes`, defaults to the OS preference and is saved to `localStorage`
+- **Loading skeletons** and empty or error states
+- **Responsive grid** built with Tailwind CSS 4 and shadcn/ui-style components (Radix UI primitives, `lucide-react` icons)
 
-## Tech Stack
+## Tech stack
 
-- Next.js 14 (App Router)
-- TypeScript
-- Redux Toolkit
-- Tailwind CSS
-- shadcn/ui
-- React Query
-- OMDB API
+| Area | Tools |
+| --- | --- |
+| Framework | Next.js 15 (App Router, Turbopack dev), React 19, TypeScript |
+| Data | TanStack Query 5, axios, OMDb API |
+| State | Redux Toolkit, React Redux |
+| UI | Tailwind CSS 4, `next-themes`, shadcn/ui components (Radix UI, `class-variance-authority`, `tailwind-merge`), `lucide-react` |
+| Hosting | Vercel |
 
-## Getting Started
+## Project structure
+
+```
+movie-imdb/
+├── public/                      # static assets, placeholder poster
+└── src/
+    ├── app/
+    │   ├── page.tsx             # redirects to /movies
+    │   ├── movies/page.tsx      # search + results grid
+    │   └── movies/[id]/page.tsx # movie details + rating
+    ├── components/
+    │   ├── movies/              # MovieCard, SearchBar
+    │   ├── providers/           # Redux / React Query providers, ThemeProvider
+    │   └── ui/                  # button, card, dialog, input, skeleton, toggle
+    └── lib/
+        ├── api/movies.ts        # OMDb search + details
+        ├── hooks/useDebounce.ts
+        └── store/               # Redux store, movie + theme slices
+```
+
+## Getting started
 
 ### Prerequisites
 
-- Node.js 18.0 or later
-- npm or yarn
-- OMDB API key (get one at [omdbapi.com](https://www.omdbapi.com/apikey.aspx))
+- Node.js 18.18+ (required by Next.js 15) and npm
+- An OMDb API key ([get one free](https://www.omdbapi.com/apikey.aspx))
 
-### Installation
+### Install and run
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd movie-search-app
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   # or
-   yarn install
-   ```
-
-3. Create a `.env.local` file in the root directory and add your OMDB API key:
-   ```env
-   NEXT_PUBLIC_OMDB_API_KEY=your_api_key_here
-   NEXT_PUBLIC_OMDB_BASE_URL=https://www.omdbapi.com
-   ```
-
-4. Start the development server:
-   ```bash
-   npm run dev
-   # or
-   yarn dev
-   ```
-
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Project Structure
-
-```
-src/
-├── app/                    # Next.js app router pages
-├── components/            # React components
-│   ├── movies/           # Movie-related components
-│   ├── providers/        # App providers
-│   └── ui/               # UI components (shadcn/ui)
-├── lib/                   # Utilities and configurations
-│   ├── api/              # API functions
-│   ├── hooks/            # Custom hooks
-│   └── store/            # Redux store and slices
+```bash
+git clone https://github.com/VamsiKrishnaThota03/movie-imdb.git
+cd movie-imdb
+npm install
+echo "NEXT_PUBLIC_OMDB_API_KEY=<your-omdb-api-key>" > .env.local
+npm run dev            # http://localhost:3000
 ```
 
-## Features in Detail
+### Environment variables (`.env.local`)
 
-### Search Functionality
-- Debounced search to prevent excessive API calls
-- Auto-updates results as you type
-- Minimum 3 characters required to trigger search
+| Variable | Required | Description |
+| --- | --- | --- |
+| `NEXT_PUBLIC_OMDB_API_KEY` | Yes | OMDb API key. It is exposed to the browser because requests are made client-side. |
 
-### Movie Details
-- Comprehensive movie information
-- Star rating system (1-5 stars)
-- Locally stored ratings
-- Responsive image loading
+The OMDb base URL (`https://www.omdbapi.com`) is set in `src/lib/api/movies.ts`.
 
-### Theme Support
-- Light and dark mode
-- System preference detection
-- Persistent theme selection
+### Scripts
 
-## Contributing
-
-Feel free to submit issues and pull requests.
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Dev server with Turbopack |
+| `npm run build` | Production build |
+| `npm start` | Serve the production build |
+| `npm run lint` | Next.js ESLint |
