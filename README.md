@@ -9,8 +9,8 @@ A responsive movie search app built with Next.js 15, React 19 and the OMDb API. 
 ![TanStack Query](https://img.shields.io/badge/TanStack%20Query-5-FF4154?logo=reactquery&logoColor=white)
 ![Redux Toolkit](https://img.shields.io/badge/Redux%20Toolkit-2-764ABC?logo=redux&logoColor=white)
 
-[![CI](https://github.com/VamsiKrishnaThota03/movie-imdb/actions/workflows/ci.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/movie-imdb/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/VamsiKrishnaThota03/movie-imdb/actions/workflows/codeql.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/movie-imdb/actions/workflows/codeql.yml)
+[![CI](https://github.com/VamsiKrishnaThota03/movie-search-omdb/actions/workflows/ci.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/movie-search-omdb/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/VamsiKrishnaThota03/movie-search-omdb/actions/workflows/codeql.yml/badge.svg)](https://github.com/VamsiKrishnaThota03/movie-search-omdb/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Live demo
@@ -84,7 +84,7 @@ movie-imdb/
 ### Install and run
 
 ```bash
-git clone https://github.com/VamsiKrishnaThota03/movie-imdb.git
+git clone https://github.com/VamsiKrishnaThota03/movie-search-omdb.git
 cd movie-imdb
 npm install
 cp .env.example .env.local   # then set OMDB_API_KEY
