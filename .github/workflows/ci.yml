@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test:run
+
+      - name: Coverage
+        if: matrix.node == '20'
+        run: npm run test:coverage
+
+  build:
+    name: production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          # A placeholder is enough: the key is only read at request time, so
+          # the build must not depend on a real one.
+          OMDB_API_KEY: build-placeholder
+
+      - name: The client bundle must not contain the API key
+        run: |
+          set -euo pipefail
+          # The whole point of proxying OMDb through a route handler is that the
+          # key never reaches the browser. This is the assertion that proves it.
+          # .next/static is exactly what is served to browsers, so this is the
+          # assertion that matters. A NEXT_PUBLIC_ prefix on the key, or a
+          # stray import of the server module into a client component, would
+          # both show up here.
+          if grep -rl "build-placeholder" .next/static 2>/dev/null; then
+            echo "::error::the OMDb API key leaked into the client bundle"
+            grep -rl "build-placeholder" .next/static
+            exit 1
+          fi
+          echo "no key material in the client bundle"
+
+      - name: Security headers are configured
+        run: |
+          set -euo pipefail
+          # Cheap guard against the headers() block being dropped from
+          # next.config.ts during a refactor.
+          for header in "Content-Security-Policy" "X-Content-Type-Options" \
+                        "Referrer-Policy" "Strict-Transport-Security"; do
+            grep -q "$header" next.config.ts \
+              || { echo "::error::$header missing from next.config.ts"; exit 1; }
+          done
+          grep -q "poweredByHeader: false" next.config.ts \
+            || { echo "::error::poweredByHeader should be disabled"; exit 1; }
+          echo "security headers present"
